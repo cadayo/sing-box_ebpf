@@ -396,41 +396,33 @@ func (i *Inbound) Diagnostics() EBPFDiagnostics {
 	}
 	// fakeip_icmp can be hosted independently by the TC backend (local TC,
 	// shared socket_assign) and by the shared packet-rewrite backend at the
-	// same time -- each loads its own copy of the object (see
-	// sing-ebpf/fakeip_icmp_backend.go) -- so their counts are summed
-	// rather than one overwriting the other.
-	for _, addCount := range []func() (uint64, uint64, uint64, bool){
-		func() (uint64, uint64, uint64, bool) {
-			backend := i.tcBackend()
-			if backend == nil || !backend.FakeIPICMPEnabled() {
-				return 0, 0, 0, false
-			}
-			replies, _ := backend.FakeIPICMPReplyCount()
-			passThrough, _ := backend.FakeIPICMPPassThroughCount()
-			rewriteFailures, _ := backend.FakeIPICMPRewriteFailureCount()
-			return replies, passThrough, rewriteFailures, true
-		},
-		func() (uint64, uint64, uint64, bool) {
-			if sharedRewriteBackend == nil || !sharedRewriteBackend.FakeIPICMPEnabled() {
-				return 0, 0, 0, false
-			}
-			replies, _ := sharedRewriteBackend.FakeIPICMPReplyCount()
-			passThrough, _ := sharedRewriteBackend.FakeIPICMPPassThroughCount()
-			rewriteFailures, _ := sharedRewriteBackend.FakeIPICMPRewriteFailureCount()
-			return replies, passThrough, rewriteFailures, true
-		},
-	} {
-		replies, passThrough, rewriteFailures, enabled := addCount()
-		if !enabled {
-			continue
-		}
-		diagnostics.Counters.FakeIPICMPReplies += replies
-		diagnostics.Counters.FakeIPICMPPassThrough += passThrough
-		diagnostics.Counters.FakeIPICMPRewriteFailureDrops += rewriteFailures
-	}
+	// same time -- each loads its own copy of the object -- so their counts
+	// are summed rather than one overwriting the other.
+	addFakeIPICMPCounters(&diagnostics.Counters, i.tcBackend(), sharedRewriteBackend)
 
 	diagnostics.State = deriveDiagnosticsState(diagnostics)
 	return diagnostics
+}
+
+type fakeIPICMPCounterSource interface {
+	FakeIPICMPEnabled() bool
+	FakeIPICMPReplyCount() (uint64, error)
+	FakeIPICMPPassThroughCount() (uint64, error)
+	FakeIPICMPRewriteFailureCount() (uint64, error)
+}
+
+func addFakeIPICMPCounters(counters *EBPFCounters, sources ...fakeIPICMPCounterSource) {
+	for _, source := range sources {
+		if source == nil || !source.FakeIPICMPEnabled() {
+			continue
+		}
+		replies, _ := source.FakeIPICMPReplyCount()
+		passThrough, _ := source.FakeIPICMPPassThroughCount()
+		rewriteFailures, _ := source.FakeIPICMPRewriteFailureCount()
+		counters.FakeIPICMPReplies += replies
+		counters.FakeIPICMPPassThrough += passThrough
+		counters.FakeIPICMPRewriteFailureDrops += rewriteFailures
+	}
 }
 
 // deriveDiagnosticsState computes EBPFDiagnostics.State from the rest of the

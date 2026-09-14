@@ -121,7 +121,7 @@ func (i *Inbound) startInbound() error {
 		EnableTCP:        i.enableTCP,
 		EnableUDP:        i.enableUDP,
 		Policy:           i.compiledPolicy,
-		SelfBypassMap:    i.selfBypass.Map(),
+		SelfBypass:       i.selfBypass,
 		TrackProcess:     i.processTracker != nil,
 		FakeIPICMPReply:  i.fakeIPICMPReply,
 	}
@@ -334,7 +334,7 @@ func (i *Inbound) startProcessTracker() error {
 		EnableUDP:   i.enableUDP,
 		EnableIPv6:  i.localIPv6,
 		LocalPolicy: i.localPolicy,
-		MetadataMap: i.selfBypass.Map(),
+		SelfBypass:  i.selfBypass,
 	})
 	if err != nil {
 		if tracker != nil {
@@ -538,16 +538,16 @@ func (i *Inbound) prepareCgroupBackend() error {
 		return err
 	}
 	backend, err := commonEBPF.PrepareCgroup(commonEBPF.CgroupConfig{
-		Path:          i.cgroupPath,
-		EnableTCP:     i.enableTCP,
-		EnableUDP:     i.enableUDP,
-		EnableIPv6:    i.cgroupIPv6Enabled(),
-		RedirectIPv4:  i.redirectIPv4Prefix,
-		RedirectIPv6:  i.redirectIPv6Prefix,
-		MapCapacity:   commonEBPF.DefaultCgroupMapCapacity(),
-		UDPTimeout:    i.udpTimeout,
-		Policy:        i.compiledPolicy,
-		SelfBypassMap: i.selfBypass.Map(),
+		Path:         i.cgroupPath,
+		EnableTCP:    i.enableTCP,
+		EnableUDP:    i.enableUDP,
+		EnableIPv6:   i.cgroupIPv6Enabled(),
+		RedirectIPv4: i.redirectIPv4Prefix,
+		RedirectIPv6: i.redirectIPv6Prefix,
+		MapCapacity:  commonEBPF.DefaultCgroupMapCapacity(),
+		UDPTimeout:   i.udpTimeout,
+		Policy:       i.compiledPolicy,
+		SelfBypass:   i.selfBypass,
 	})
 	if err != nil {
 		return err
