@@ -20,7 +20,7 @@ func (s *sharedRewrite) kernelRuntimeHooks() sharedKernelRuntimeHooks {
 	return sharedKernelRuntimeHooks{
 		PrepareBackend:     s.prepareBackend,
 		PurgeUserspaceFlow: s.udpNat.Purge,
-		Ready:              s.sharedRewriteReadyLocked,
+		Ready:              s.sharedRewriteReady,
 		WarnFlowPurge: func(interfaceName string, err error) {
 			s.janitorWarnings.warn(s.inbound.logger, "purge shared packet-rewrite state for ", interfaceName, ": ", err)
 		},

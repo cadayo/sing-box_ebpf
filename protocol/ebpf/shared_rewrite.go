@@ -123,7 +123,13 @@ func (s *sharedRewrite) prepareBackend() (*ECommon.SharedNetworkBackend, error) 
 	return backend, nil
 }
 
-func (s *sharedRewrite) sharedRewriteReadyLocked(attachments []string) {
+func (s *sharedRewrite) sharedRewriteReady(attachments []string) {
+	s.lifecycleAccess.RLock()
+	defer s.lifecycleAccess.RUnlock()
+	dataPlane := s.dataPlaneInstance()
+	if dataPlane == nil || !dataPlane.IsEnabled() {
+		return
+	}
 	s.startFlowJanitor()
 	s.inbound.logger.Debug(
 		"eBPF shared packet-rewrite active: attachments=[", strings.Join(attachments, ", "), "]",

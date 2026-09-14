@@ -72,3 +72,12 @@ func TestSharedFlowWakeContinuesIncompleteScan(t *testing.T) {
 		t.Fatalf("incomplete scan wake was not scheduled: known=%v requested=%v", knownPressure, sweepRequested)
 	}
 }
+
+func TestSharedRewriteReadyIgnoresInactiveRuntime(t *testing.T) {
+	shared := &sharedRewrite{}
+	shared.setDataPlane(newSharedKernelRuntime(sharedKernelRuntimeHooks{}, 0))
+	shared.sharedRewriteReady([]string{"wlan0(tcx)"})
+	if shared.janitorCancel != nil || shared.janitorDone != nil {
+		t.Fatal("stale ready callback started the shared flow janitor")
+	}
+}
