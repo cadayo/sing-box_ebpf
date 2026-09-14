@@ -12,10 +12,10 @@ import (
 	commonEBPF "github.com/CHIZI-0618/sing-ebpf"
 	"github.com/sagernet/sing-box/adapter"
 	"github.com/sagernet/sing-box/common/listener"
+	"github.com/sagernet/sing-box/common/udpio"
 	"github.com/sagernet/sing-box/option"
 	"github.com/sagernet/sing/common"
 	"github.com/sagernet/sing/common/buf"
-	sBufio "github.com/sagernet/sing/common/bufio"
 	E "github.com/sagernet/sing/common/exceptions"
 	"github.com/sagernet/sing/common/json/badoption"
 	M "github.com/sagernet/sing/common/metadata"
@@ -73,8 +73,8 @@ type internalListenerSet struct {
 	tcp6      *listener.Listener
 	udp4      *listener.Listener
 	udp6      *listener.Listener
-	udp4Batch N.OOBPacketBatchWriter
-	udp6Batch N.OOBPacketBatchWriter
+	udp4Batch udpio.OOBPacketBatchWriter
+	udp6Batch udpio.OOBPacketBatchWriter
 	port      uint16
 }
 
@@ -119,7 +119,7 @@ func (s *internalListenerSet) start(
 			return err
 		}
 		if spec.network == N.NetworkUDP {
-			batchWriter, created := sBufio.CreateOOBPacketBatchWriter(sBufio.NewPacketConn(current.UDPConn()))
+			batchWriter, created := udpio.NewOOBPacketBatchWriter(current.UDPConn(), spec.ipv6)
 			if created {
 				if spec.ipv6 {
 					s.udp6Batch = batchWriter
@@ -265,7 +265,7 @@ func (s *internalListenerSet) writeUDPBatch(
 		group.packetInfos = append(group.packetInfos, packetInfos[index])
 		group.destinations = append(group.destinations, M.SocksaddrFromNetIP(client))
 	}
-	writeGroup := func(group packetGroup, current *listener.Listener, batchWriter N.OOBPacketBatchWriter) error {
+	writeGroup := func(group packetGroup, current *listener.Listener, batchWriter udpio.OOBPacketBatchWriter) error {
 		if len(group.buffers) == 0 {
 			return nil
 		}

@@ -13,7 +13,6 @@ import (
 	"github.com/sagernet/sing-box/common/listener"
 	"github.com/sagernet/sing-box/option"
 	E "github.com/sagernet/sing/common/exceptions"
-	udpnat "github.com/sagernet/sing/common/udpnat2"
 )
 
 const (
@@ -31,7 +30,7 @@ type sharedRewrite struct {
 	interfaces           []string
 	dataPlane            sharedKernelRuntime
 	listeners            internalListenerSet
-	udpNat               *udpnat.KeyedService[udpSessionKey]
+	udpNat               *udpNATService
 	sharedUDPClientTable sharedUDPClientTable
 	udpWarnings          udpWarningLimiters
 	tcpWarnings          warningLimiter
@@ -58,7 +57,7 @@ func newSharedRewrite(inbound *Inbound, options option.EBPFSharedOptions) *share
 		mapCapacity: mapCapacity,
 		tcPriority:  inbound.tcPriority,
 	}
-	shared.udpNat = udpnat.NewKeyed(shared, shared.preparePacketConnection, inbound.udpTimeout, false)
+	shared.udpNat = newUDPNATService(shared, shared.preparePacketConnection, inbound.udpTimeout)
 	return shared
 }
 

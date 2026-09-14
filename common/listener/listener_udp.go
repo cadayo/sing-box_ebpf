@@ -10,6 +10,7 @@ import (
 
 	"github.com/sagernet/sing-box/adapter"
 	"github.com/sagernet/sing-box/common/redir"
+	"github.com/sagernet/sing-box/common/udpio"
 	C "github.com/sagernet/sing-box/constant"
 	"github.com/sagernet/sing/common/buf"
 	sBufio "github.com/sagernet/sing/common/bufio"
@@ -21,6 +22,10 @@ import (
 )
 
 const udpOutputBatchSize = 128
+
+type oobPacketBatchHandler interface {
+	NewOOBPacketBatch(buffers []*buf.Buffer, oobs [][]byte, sources []M.Socksaddr)
+}
 
 func (l *Listener) ListenUDP() (net.PacketConn, error) {
 	return l.ListenUDPWithConfig(net.ListenConfig{})
@@ -110,8 +115,8 @@ func (l *Listener) PacketWriter() N.PacketWriter {
 func (l *Listener) loopUDPIn() {
 	defer close(l.packetOutboundClosed)
 	if l.oobPacketHandler != nil {
-		if batchHandler, isBatchHandler := l.oobPacketHandler.(N.OOBPacketBatchHandler); isBatchHandler {
-			if readWaiter, created := sBufio.CreateOOBPacketBatchReadWaiter(sBufio.NewPacketConn(l.udpConn), 1024); created {
+		if batchHandler, isBatchHandler := l.oobPacketHandler.(oobPacketBatchHandler); isBatchHandler {
+			if readWaiter, created := udpio.NewOOBPacketBatchReadWaiter(l.udpConn, 1024); created {
 				readWaiter.InitializeReadWaiter(N.ReadWaitOptions{BatchSize: sBufio.DefaultPacketReadBatchSize})
 				l.loopUDPInOOBBatch(batchHandler, readWaiter)
 				return
@@ -181,7 +186,7 @@ func (l *Listener) loopUDPIn() {
 	}
 }
 
-func (l *Listener) loopUDPInOOBBatch(handler N.OOBPacketBatchHandler, reader N.OOBPacketBatchReadWaiter) {
+func (l *Listener) loopUDPInOOBBatch(handler oobPacketBatchHandler, reader udpio.OOBPacketBatchReadWaiter) {
 	for {
 		buffers, oobs, sources, err := reader.WaitReadOOBPackets()
 		if err != nil {
