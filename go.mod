@@ -4,9 +4,11 @@ go 1.25.5
 
 require (
 	filippo.io/age v1.3.1
+	github.com/CHIZI-0618/sing-ebpf v0.1.0-alpha.1
 	github.com/anthropics/anthropic-sdk-go v1.26.0
 	github.com/caddyserver/certmagic v0.25.3-0.20260421143802-60d9d8b415d6
 	github.com/caddyserver/zerossl v0.1.5
+	github.com/cilium/ebpf v0.22.1-0.20260724091036-00feb08ae4e5
 	github.com/coder/websocket v1.8.14
 	github.com/creack/pty v1.1.24
 	github.com/cretz/bine v0.2.0
@@ -81,6 +83,8 @@ require (
 	google.golang.org/protobuf v1.36.11
 	howett.net/plist v1.0.1
 )
+
+replace github.com/sagernet/sing => github.com/CHIZI-0618/sing v0.9.5-0.20260914154845-ba0479182f33
 
 require (
 	filippo.io/edwards25519 v1.2.0 // indirect

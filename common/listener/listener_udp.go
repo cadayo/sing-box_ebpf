@@ -28,6 +28,7 @@ func (l *Listener) ListenUDP() (net.PacketConn, error) {
 
 func (l *Listener) ListenUDPWithConfig(listenConfig net.ListenConfig) (net.PacketConn, error) {
 	bindAddr := M.SocksaddrFrom(l.listenOptions.Listen.Build(netip.AddrFrom4([4]byte{127, 0, 0, 1})), l.listenOptions.ListenPort)
+	listenConfig.Control = control.Append(listenConfig.Control, l.socketControl)
 	if l.listenOptions.BindInterface != "" {
 		listenConfig.Control = control.Append(listenConfig.Control, control.BindToInterface(service.FromContext[adapter.NetworkManager](l.ctx).InterfaceFinder(), l.listenOptions.BindInterface, -1))
 	}
@@ -61,7 +62,9 @@ func (l *Listener) ListenUDPWithConfig(listenConfig net.ListenConfig) (net.Packe
 	}
 	l.udpConn = udpConn.(*net.UDPConn)
 	l.udpAddr = bindAddr
-	l.logger.Info("udp server started at ", udpConn.LocalAddr())
+	if !l.disableLog {
+		l.logger.Info("udp server started at ", udpConn.LocalAddr())
+	}
 	return udpConn, err
 }
 
@@ -106,7 +109,15 @@ func (l *Listener) PacketWriter() N.PacketWriter {
 
 func (l *Listener) loopUDPIn() {
 	defer close(l.packetOutboundClosed)
-	if l.oobPacketHandler == nil {
+	if l.oobPacketHandler != nil {
+		if batchHandler, isBatchHandler := l.oobPacketHandler.(N.OOBPacketBatchHandler); isBatchHandler {
+			if readWaiter, created := sBufio.CreateOOBPacketBatchReadWaiter(sBufio.NewPacketConn(l.udpConn), 1024); created {
+				readWaiter.InitializeReadWaiter(N.ReadWaitOptions{BatchSize: sBufio.DefaultPacketReadBatchSize})
+				l.loopUDPInOOBBatch(batchHandler, readWaiter)
+				return
+			}
+		}
+	} else {
 		if batchHandler, isBatchHandler := l.packetHandler.(adapter.PacketBatchHandler); isBatchHandler {
 			packetConn := sBufio.NewPacketConn(l.udpConn)
 			if readWaiter, created := sBufio.CreatePacketBatchReadWaiter(packetConn); created {
@@ -167,6 +178,22 @@ func (l *Listener) loopUDPIn() {
 			buffer.Truncate(n)
 			l.packetHandler.NewPacket(buffer, M.SocksaddrFromNetIP(addr).Unwrap())
 		}
+	}
+}
+
+func (l *Listener) loopUDPInOOBBatch(handler N.OOBPacketBatchHandler, reader N.OOBPacketBatchReadWaiter) {
+	for {
+		buffers, oobs, sources, err := reader.WaitReadOOBPackets()
+		if err != nil {
+			buf.ReleaseMulti(buffers)
+			if l.shutdown.Load() && E.IsClosed(err) {
+				return
+			}
+			l.udpConn.Close()
+			l.logger.Error("UDP listener closed: ", err)
+			return
+		}
+		handler.NewOOBPacketBatch(buffers, oobs, sources)
 	}
 }
 
